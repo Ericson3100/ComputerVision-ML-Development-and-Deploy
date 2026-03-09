@@ -1,0 +1,6 @@
+/Part-1/dataset/*
+/Part-1/dataset_balanced/*
+/Part-1/scrapping/*/*.jpeg
+/Part-1/models/*/*/*/*.data*
+/Part-1/models/*/*/*/*.index
+/Part-1/models/*/*/*.pb

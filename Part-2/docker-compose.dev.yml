@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: image-classifier-backend-dev
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - GO_ENV=development
+    volumes:
+      - ./backend:/app
+    command: go run .
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: image-classifier-frontend-dev
+    ports:
+      - "3000:3000"
+    environment:
+      - VUE_APP_API_URL=http://localhost:8080
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: npm run serve
+    depends_on:
+      - backend
+    networks:
+      - app-network
+    restart: unless-stopped
+
+networks:
+  app-network:
+    driver: bridge
