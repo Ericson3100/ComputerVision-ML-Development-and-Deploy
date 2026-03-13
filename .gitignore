@@ -4,3 +4,4 @@
 /Part-1/models/*/*/*/*.data*
 /Part-1/models/*/*/*/*.index
 /Part-1/models/*/*/*.pb
+/Part-2/frontend/node_modules/*

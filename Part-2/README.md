@@ -1,379 +1,271 @@
-# 🖼️ Clasificador de Imágenes - Multiclass vs Mixture of Experts
+# Image Classifier - Multi-Model Comparison
 
-Sistema completo de clasificación de imágenes con dos arquitecturas de modelos: un clasificador multiclase estándar y un modelo Mixture of Experts (MoE). Todo dockerizado para despliegue fácil.
+Complete image classification system with a Vue 3 frontend and Go backend.
+The current application runs **4 models in parallel** for each uploaded image and streams progressive results via **SSE**.
 
-## 🏗️ Arquitectura
+## What the app does today
+
+- Upload **one or multiple images** (drag & drop or file picker).
+- Parallel execution of 4 models:
+  - `multiclass`
+  - `multilabel`
+  - `mixture_of_experts`
+  - `binary_relevance`
+- **Confidence threshold** control (0.00 - 1.00).
+- Live results per image/model, including top class, top-5, and processing time.
+- Global stats: total images, total time, and average per image.
+
+## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                     Docker Compose                       │
-├──────────────────────┬──────────────────────────────────┤
-│   Frontend (Vue.js)  │     Backend (Go)                 │
-│   - Puerto: 3000     │     - Puerto: 8080               │
-│   - Nginx            │     - API REST                   │
-│                      │     - 3 Modelos ML               │
-└──────────────────────┴──────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────┐
+│                        Docker Compose                        │
+├───────────────────────────────┬───────────────────────────────┤
+│ Frontend (Vue 3 + Nginx)      │ Backend (Go + Gorilla Mux)    │
+│ - Host port: 3000             │ - Host port: 8080             │
+│ - Upload and comparison UI     │ - REST API + SSE stream        │
+│ - Calls /api/*                 │ - 4 classification models       │
+└───────────────────────────────┴───────────────────────────────┘
 ```
 
-### Componentes
+## Requirements
 
-- **Frontend**: Vue.js 3 con interfaz moderna para subir imágenes y visualizar resultados
-- **Backend**: Go con Gorilla Mux para API REST de clasificación
-- **Modelos**:
-  - **Multiclass**: Clasificador estándar con 10 clases (animales y vehículos)
-  - **Mixture of Experts**: Sistema MoE con expertos especializados y router inteligente
-  - **Binary Relevance**: Clasificadores binarios independientes para multi-label
+- Docker Desktop running
+- Docker Compose
+- Available ports `3000` and `8080`
+- If you build locally or mount backend content manually, model files are required under `backend/models/`.
+- If you use prebuilt images, local model files are not required.
 
-## 🚀 Inicio Rápido
+## Model files (required)
 
-### Prerrequisitos
+All TensorFlow models must be available inside `backend/models/`.
+When building with Docker, the backend image now copies `backend/models/` into the container automatically (no manual runtime mount/load step required).
+The backend is configured with these exact relative paths (from `backend/`):
 
-- Docker Desktop instalado
-- Docker Compose v3.8+
-- Puertos 3000 y 8080 disponibles
+```text
+./models/simple_model_multiclass/unique_model_multiclass
+./models/simple_model_multilabel/unique_model_multilabel
+./models/MoE/moe_model
+./models/binary_relevance/dew_relevance_expert
+./models/binary_relevance/fogsmog_relevance_expert
+./models/binary_relevance/frost_relevance_expert
+./models/binary_relevance/glaze_relevance_expert
+./models/binary_relevance/hail_relevance_expert
+./models/binary_relevance/lightning_relevance_expert
+./models/binary_relevance/rain_relevance_expert
+./models/binary_relevance/rainbow_relevance_expert
+./models/binary_relevance/rime_relevance_expert
+./models/binary_relevance/sandstorm_relevance_expert
+./models/binary_relevance/snow_relevance_expert
+./models/binary_relevance/volcanos_relevance_expert
+```
 
-### Instalación y Ejecución
+If model files are missing or placed in different paths, the backend will fail during startup and stop execution.
+
+Expected SavedModel format for each model directory:
+
+```text
+<model_directory>/
+  saved_model.pb
+  fingerprint.pb
+  assets/
+  variables/
+    variables.data-00000-of-00001
+    variables.index
+```
+
+If you need to export/convert a model from python to this format, use `tf.keras.Model.export`.
+
+```python
+import keras
+
+# model = ...
+model.export("backend/models/simple_model_multiclass/unique_model_multiclass")
+```
+
+`model.export(...)` generates the TensorFlow SavedModel structure expected by this backend.
+
+For older TensorFlow/Keras versions that do not provide `export`, use:
+
+```python
+model.save("backend/models/simple_model_multiclass/unique_model_multiclass", save_format="tf")
+```
+
+## Quick Start
+
+### Option 1: Automatic script
+
+**Windows**
+```cmd
+start.bat
+```
+
+**Linux/macOS**
+```bash
+chmod +x start.sh
+./start.sh
+```
+
+### Option 2: Docker Compose (manual)
 
 ```bash
-# 1. Clonar el repositorio
-git clone <tu-repo>
-cd Part-2
-
-# 2. Construir y ejecutar con Docker Compose
 docker-compose up --build
-
-# O en modo detached
-docker-compose up -d --build
 ```
 
-### Acceso a la Aplicación
-
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:8080
-- **Health Check**: http://localhost:8080/api/health
-
-## 📋 Uso de la Aplicación
-
-1. **Seleccionar Modelo**: Elige entre "Modelo Multiclass", "Mixture of Experts" o "Binary Relevance"
-2. **Subir Imagen**: Arrastra o selecciona una imagen (JPG, PNG, GIF hasta 10MB)
-3. **Clasificar**: Haz clic en "Clasificar Imagen"
-4. **Ver Resultados**: Observa las predicciones ordenadas por confianza
-
-### Ejemplo de Respuesta
-
-```json
-{
-  "model": "mixture_of_experts",
-  "predictions": [
-    {
-      "class": "cat",
-      "confidence": 0.85,
-      "expert_used": "animal_expert"
-    },
-    {
-      "class": "dog",
-      "confidence": 0.10,
-      "expert_used": "animal_expert"
-    }
-  ],
-  "process_time_ms": 45.2
-}
-```
-
-## 🔧 Desarrollo
-
-### Modo Desarrollo con Hot-Reload
+### Option 3: Prebuilt images (no local models required)
 
 ```bash
-# Usar docker-compose de desarrollo
+docker compose pull
+docker compose up -d
+```
+
+### Access URLs
+
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:8080
+- Health check: http://localhost:8080/api/health
+- Swagger UI: http://localhost:8080/swagger
+- OpenAPI spec: http://localhost:8080/swagger/doc.yaml
+
+## Development mode (hot reload)
+
+### Scripts
+
+**Windows**
+```cmd
+dev.bat
+```
+
+**Linux/macOS**
+```bash
+chmod +x dev.sh
+./dev.sh
+```
+
+### Docker Compose dev
+
+```bash
 docker-compose -f docker-compose.dev.yml up --build
 ```
 
-En este modo:
-- Frontend: Hot-reload automático en cambios de código
-- Backend: Recompilación automática en cambios de Go
+## Makefile commands
 
-### Ejecutar Solo Backend
+```bash
+make help
+make up
+make dev
+make logs
+make down
+make test-backend
+make test-frontend
+```
 
+## UI workflow
+
+1. Upload one or more images (`JPG/PNG/GIF`, max 100MB per request).
+2. Adjust the confidence threshold.
+3. Click **Classify with All Models**.
+4. Review results per image across the 4 model cards.
+5. Compare predictions, confidence scores, and processing times.
+
+## API
+
+### Swagger
+
+- Swagger UI: http://localhost:8080/swagger
+- OpenAPI YAML: http://localhost:8080/swagger/doc.yaml
+
+### `GET /api/health`
+```bash
+curl http://localhost:8080/api/health
+```
+
+### `GET /api/models`
+Returns metadata for available models (`multiclass`, `multilabel`, `mixture_of_experts`, `binary_relevance`).
+
+```bash
+curl http://localhost:8080/api/models
+```
+
+### `POST /api/classify`
+Classifies one image with a selected model.
+
+```bash
+curl -X POST http://localhost:8080/api/classify \
+  -F "image=@image.jpg" \
+  -F "model=multiclass"
+```
+
+Valid values for `model`: `multiclass`, `multilabel`, `mixture_of_experts`, `binary_relevance`.
+
+### `POST /api/classify-all`
+Classifies one or more images with all 4 models in parallel and returns an aggregated JSON response.
+
+```bash
+curl -X POST http://localhost:8080/api/classify-all \
+  -F "images=@image1.jpg" \
+  -F "images=@image2.jpg" \
+  -F "threshold=0.5"
+```
+
+### `POST /api/classify-stream`
+Same parallel processing, but with progressive SSE response streaming (endpoint used by the frontend).
+
+```bash
+curl -N -X POST http://localhost:8080/api/classify-stream \
+  -F "images=@image1.jpg" \
+  -F "threshold=0.5"
+```
+
+
+## Screenshots (UI + optional API)
+
+Use this section to attach real evidence from the app.
+If you store images in the repository, a common path is `screenshots/`.
+
+### UI screenshots
+
+#### 1) Initial UI
+![Initial UI](screenshots/ui-initial.png)
+
+#### 2) Multiple images loaded
+![Multiple images loaded](screenshots/ui-multiple-images.png)
+
+#### 3) Classification results with threshold behavior
+![Classification results](screenshots/ui-results-models1.png)
+
+![Classification results 2](screenshots/ui-results-models2.png)
+
+
+## Run without Docker
+
+### Backend
 ```bash
 cd backend
 go mod download
 go run .
 ```
 
-### Ejecutar Solo Frontend
-
+### Frontend
 ```bash
 cd frontend
 npm install
 npm run serve
 ```
 
-## 📁 Estructura del Proyecto
+## Troubleshooting
 
-```
-Part-2/
-├── backend/                    # Backend en Go
-│   ├── main.go                # Servidor principal y API
-│   ├── multiclass_model.go    # Modelo clasificador multiclase
-│   ├── mixture_of_experts_model.go  # Modelo MoE
-│   ├── go.mod                 # Dependencias Go
-│   ├── Dockerfile             # Imagen Docker backend
-│   └── .dockerignore
-│
-├── frontend/                   # Frontend en Vue.js
-│   ├── src/
-│   │   ├── App.vue           # Componente principal
-│   │   └── main.js           # Punto de entrada
-│   ├── public/
-│   │   └── index.html        # HTML base
-│   ├── package.json          # Dependencias npm
-│   ├── vue.config.js         # Configuración Vue
-│   ├── nginx.conf            # Configuración Nginx
-│   ├── Dockerfile            # Imagen Docker frontend (producción)
-│   ├── Dockerfile.dev        # Imagen Docker frontend (desarrollo)
-│   └── .dockerignore
-│
-├── docker-compose.yml         # Orquestación producción
-├── docker-compose.dev.yml     # Orquestación desarrollo
-├── .gitignore
-└── README.md
-```
-
-## 🎯 API Endpoints
-
-### GET /api/health
-Health check del servidor
-
+### Frontend does not connect to backend
 ```bash
 curl http://localhost:8080/api/health
 ```
 
-### GET /api/models
-Obtener información de modelos disponibles
+### Change ports
+Edit `docker-compose.yml` in the `ports` section.
 
-```bash
-curl http://localhost:8080/api/models
-```
-
-### POST /api/classify
-Clasificar una imagen
-
-```bash
-curl -X POST \
-  -F "image=@imagen.jpg" \
-  -F "model=multiclass" \
-  http://localhost:8080/api/classify
-```
-
-**Parámetros**:
-- `image`: Archivo de imagen (multipart/form-data)
-- `model`: "multiclass", "mixture_of_experts" o "binary_relevance"
-
-## 🧠 Modelos de Machine Learning
-
-### Modelo Multiclass
-
-Arquitectura tradicional donde un solo modelo maneja todas las clases:
-
-**Clases**: cat, dog, bird, fish, horse, car, truck, airplane, boat, bicycle
-
-**Ventajas**:
-- Simple y directo
-- Menos recursos computacionales
-- Bueno para problemas balanceados
-
-### Mixture of Experts (MoE)
-
-Sistema con múltiples expertos especializados y un router que decide qué experto usar:
-
-**Expertos**:
-- `animal_expert`: cat, dog, bird, fish, horse
-- `vehicle_expert`: car, truck, airplane, boat, bicycle
-
-**Componentes**:
-1. **Router**: Analiza la imagen y selecciona el experto más apropiado
-2. **Expertos**: Modelos especializados en subconjuntos de clases
-
-**Ventajas**:
-- Mayor precisión en clases específicas
-- Escalable a más expertos
-- Mejor para problemas complejos
-
-### Binary Relevance
-
-Sistema de clasificación multi-label con clasificadores binarios independientes:
-
-**Clasificadores**:
-- Un clasificador binario por cada clase (10 en total)
-- Cada uno decide independientemente si su clase está presente
-
-**Características**:
-1. **Independencia**: Cada clasificador funciona de forma autónoma
-2. **Multi-label**: Puede predecir múltiples clases simultáneamente
-3. **Umbral ajustable**: Cada clasificador tiene su propio umbral de decisión
-
-**Ventajas**:
-- Soporte para multi-label (múltiples clases por imagen)
-- Fácil de entrenar (cada clasificador es simple)
-- Flexible en ajuste de umbrales por clase
-- Bueno para datasets desbalanceados
-
-**Casos de uso**:
-- Imágenes con múltiples objetos
-- Clasificación de tags/etiquetas
-- Detección de atributos múltiples
-
-## 🔄 Comandos Docker Útiles
-
-```bash
-# Ver logs
-docker-compose logs -f
-
-# Ver logs de un servicio específico
-docker-compose logs -f backend
-docker-compose logs -f frontend
-
-# Parar servicios
-docker-compose down
-
-# Parar y eliminar volúmenes
-docker-compose down -v
-
-# Reconstruir sin caché
-docker-compose build --no-cache
-
-# Ver contenedores corriendo
-docker-compose ps
-
-# Ejecutar comando en contenedor
-docker-compose exec backend sh
-docker-compose exec frontend sh
-```
-
-## 🧪 Testing
-
-### Backend
-
-```bash
-cd backend
-go test ./...
-```
-
-### Frontend
-
-```bash
-cd frontend
-npm run test
-```
-
-## 📊 Monitoreo y Logs
-
-Los logs de ambos servicios se pueden ver con:
-
-```bash
-# Todos los logs
-docker-compose logs -f
-
-# Solo backend
-docker-compose logs -f backend
-
-# Solo frontend
-docker-compose logs -f frontend
-```
-
-## 🚢 Despliegue en Producción
-
-### Build de Producción
-
-```bash
-docker-compose build
-docker-compose up -d
-```
-
-### Consideraciones de Producción
-
-1. **Modelos Reales**: Integrar modelos ML reales (TensorFlow, PyTorch, ONNX)
-2. **Persistencia**: Agregar volúmenes para caché de modelos
-3. **Escalabilidad**: Usar Kubernetes para auto-scaling
-4. **Seguridad**: 
-   - Rate limiting
-   - Autenticación JWT
-   - HTTPS con certificados SSL
-5. **Monitoreo**: Prometheus + Grafana para métricas
-
-## 🔐 Variables de Entorno
-
-### Backend
-```env
-PORT=8080
-GO_ENV=production
-```
-
-### Frontend
-```env
-VUE_APP_API_URL=http://localhost:8080
-```
-
-## 🐛 Troubleshooting
-
-### El frontend no se conecta al backend
-
-Verifica que el backend esté corriendo:
-```bash
-curl http://localhost:8080/api/health
-```
-
-### Error de puertos ocupados
-
-Cambia los puertos en `docker-compose.yml`:
-```yaml
-ports:
-  - "8081:8080"  # Backend
-  - "3001:80"    # Frontend
-```
-
-### Reconstruir desde cero
-
+### Clean restart
 ```bash
 docker-compose down -v
 docker-compose build --no-cache
 docker-compose up
 ```
-
-## 🤝 Contribuciones
-
-1. Fork el proyecto
-2. Crea una rama feature (`git checkout -b feature/AmazingFeature`)
-3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
-4. Push a la rama (`git push origin feature/AmazingFeature`)
-5. Abre un Pull Request
-
-## 📝 Próximas Mejoras
-
-- [ ] Integrar modelos ML reales (TensorFlow/PyTorch)
-- [ ] Agregar autenticación de usuarios
-- [ ] Implementar caché de predicciones
-- [ ] Agregar más tipos de expertos en MoE
-- [ ] Dashboard de métricas en tiempo real
-- [ ] Soporte para batch processing
-- [ ] API GraphQL adicional
-- [ ] Tests unitarios y de integración completos
-
-## 📄 Licencia
-
-Este proyecto está bajo la Licencia MIT.
-
-## 👥 Autores
-
-- Tu Nombre - Desarrollador Principal
-
-## 🙏 Agradecimientos
-
-- Vue.js por el excelente framework frontend
-- Go community por las librerías de calidad
-- Docker por facilitar el despliegue
-
----
-
-**¿Preguntas o problemas?** Abre un issue en GitHub.

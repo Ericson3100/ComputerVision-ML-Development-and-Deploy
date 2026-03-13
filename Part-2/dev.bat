@@ -1,35 +1,35 @@
 @echo off
-REM Script para desarrollo con hot-reload (Windows)
+REM Script for development with hot-reload (Windows)
 
-echo 🔧 Iniciando modo desarrollo...
+echo Starting development mode...
 echo.
 
-REM Verificar que Docker esté corriendo
+REM Verify Docker is running
 docker info >nul 2>&1
 if errorlevel 1 (
-    echo ❌ Error: Docker no está corriendo.
+    echo Error: Docker is not running.
     pause
     exit /b 1
 )
 
-echo ✅ Docker está corriendo
+echo Docker is running
 echo.
 
-REM Parar contenedores existentes
-echo 🛑 Deteniendo contenedores existentes...
+REM Stop existing containers
+echo Stopping existing containers...
 docker-compose -f docker-compose.dev.yml down
 
 echo.
-echo 🏗️  Construyendo imágenes Docker (modo desarrollo)...
+echo Building Docker images (development mode)...
 docker-compose -f docker-compose.dev.yml build
 
 echo.
-echo 🚀 Iniciando servicios en modo desarrollo...
+echo Starting services in development mode...
 echo.
 docker-compose -f docker-compose.dev.yml up
 
-REM El comando anterior bloquea, así que el mensaje de abajo solo aparecerá cuando se detenga
+REM The above command blocks, so the message below will only appear when stopped
 echo.
-echo 🛑 Servicios detenidos
+echo Services stopped
 
 pause

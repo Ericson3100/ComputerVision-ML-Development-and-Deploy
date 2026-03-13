@@ -1,36 +1,40 @@
-# Multi-stage build para optimizar el tamaño de la imagen
 FROM golang:1.21-alpine AS builder
 
-# Instalar dependencias de compilación
 RUN apk add --no-cache git
 
-# Establecer directorio de trabajo
-WORKDIR /app
+WORKDIR /src
 
-# Copiar go mod files
 COPY go.mod go.sum* ./
-
-# Descargar dependencias
 RUN go mod download
 
-# Copiar código fuente
-COPY . .
+COPY *.go ./
 
-# Compilar la aplicación
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main .
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/main .
 
-# Etapa final - imagen mínima
-FROM alpine:latest
+FROM python:3.11-slim-bookworm AS runtime
 
-RUN apk --no-cache add ca-certificates
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
-WORKDIR /root/
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copiar el binario compilado
-COPY --from=builder /app/main .
+RUN python -m pip install --no-cache-dir --only-binary=:all: tensorflow-cpu==2.15.0 \
+    && python -c "import tensorflow as tf; print(tf.__version__)" \
+    && find /usr/local -depth \
+        \( -type d -a -name __pycache__ -o \
+            -type f -a \( -name '*.pyc' -o -name '*.pyo' \) \) -exec rm -rf '{}' +
 
-# Exponer puerto
+WORKDIR /app
+
+COPY --from=builder /out/main /app/main
+COPY tf_inference.py /app/tf_inference.py
+COPY models /app/models
+COPY swagger /app/swagger
+
 EXPOSE 8080
 
-# Ejecutar la aplicación
-CMD ["./main"]
+CMD ["/app/main"]

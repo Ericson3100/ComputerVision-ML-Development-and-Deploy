@@ -1,0 +1,160 @@
+openapi: 3.0.3
+info:
+  title: Image Classifier API
+  description: API para clasificación de imágenes con múltiples modelos.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+paths:
+  /api/health:
+    get:
+      tags: [Health]
+      summary: Estado del servicio
+      description: Verifica si el backend está activo.
+      responses:
+        '200':
+          description: Servicio saludable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /api/models:
+    get:
+      tags: [Models]
+      summary: Lista modelos disponibles
+      description: Devuelve los modelos de inferencia y metadatos.
+      responses:
+        '200':
+          description: Lista de modelos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ModelInfo'
+  /api/classify:
+    post:
+      tags: [Classification]
+      summary: Clasificación de una imagen
+      description: Clasifica una imagen usando el modelo indicado.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [image]
+              properties:
+                image:
+                  type: string
+                  format: binary
+                  description: Imagen a clasificar
+                model:
+                  type: string
+                  description: Modelo a usar
+                  enum: [multiclass, multilabel, mixture_of_experts, binary_relevance]
+                  default: multiclass
+      responses:
+        '200':
+          description: Resultado de clasificación
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClassificationResponse'
+        '400':
+          description: Solicitud inválida
+        '500':
+          description: Error interno de clasificación
+  /api/classify-stream:
+    post:
+      tags: [Classification]
+      summary: Clasificación progresiva por streaming
+      description: |
+        Ejecuta clasificación sobre múltiples imágenes y modelos, devolviendo eventos SSE.
+        Eventos esperados: `result`, `error`, `complete`.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [images]
+              properties:
+                images:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  description: Lista de imágenes a procesar
+                models:
+                  type: array
+                  items:
+                    type: string
+                    enum: [multiclass, multilabel, mixture_of_experts, binary_relevance]
+                  description: Modelos a ejecutar (si no se envía, usa todos)
+      responses:
+        '200':
+          description: Stream SSE de resultados progresivos
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                example: |
+                  event: result
+                  data: {"image_name":"x.jpg","model_id":"multiclass","complete":false}
+
+                  event: complete
+                  data: {"complete": true}
+        '500':
+          description: Streaming no soportado o error interno
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: healthy
+        time:
+          type: string
+          format: date-time
+    PredictionResult:
+      type: object
+      properties:
+        class:
+          type: string
+        confidence:
+          type: number
+          format: double
+        expert_used:
+          type: string
+      required: [class, confidence]
+    ClassificationResponse:
+      type: object
+      properties:
+        model:
+          type: string
+        predictions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PredictionResult'
+        process_time_ms:
+          type: number
+          format: double
+      required: [model, predictions, process_time_ms]
+    ModelInfo:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        classes:
+          type: array
+          items:
+            type: string
+        classifiers:
+          type: integer
+          nullable: true

@@ -1,31 +1,31 @@
 #!/bin/bash
 
-# Script para desarrollo con hot-reload
+# Script for development with hot-reload
 
-echo "🔧 Iniciando modo desarrollo..."
+echo "Starting development mode..."
 echo ""
 
-# Verificar que Docker esté corriendo
+# Verify Docker is running
 if ! docker info > /dev/null 2>&1; then
-    echo "❌ Error: Docker no está corriendo."
+    echo "Error: Docker is not running."
     exit 1
 fi
 
-echo "✅ Docker está corriendo"
+echo "Docker is running"
 echo ""
 
-# Parar contenedores existentes
-echo "🛑 Deteniendo contenedores existentes..."
+# Stop existing containers
+echo "Stopping existing containers..."
 docker-compose -f docker-compose.dev.yml down
 
 echo ""
-echo "🏗️  Construyendo imágenes Docker (modo desarrollo)..."
+echo "Building Docker images (development mode)... "
 docker-compose -f docker-compose.dev.yml build
 
 echo ""
-echo "🚀 Iniciando servicios en modo desarrollo..."
+echo "Starting services in development mode..."
 docker-compose -f docker-compose.dev.yml up
 
-# El comando anterior bloquea, así que el mensaje de abajo solo aparecerá cuando se detenga
+# The above command blocks, so the message below will only appear when stopped
 echo ""
-echo "🛑 Servicios detenidos"
+echo "Services stopped"

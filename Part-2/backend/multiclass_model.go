@@ -3,25 +3,41 @@ package main
 import (
 	"fmt"
 	"log"
-	"math/rand"
+	"os"
 )
 
-// MulticlassModel representa un modelo de clasificación multiclase estándar
+// MulticlassModel represents a standard multiclass classification model
 type MulticlassModel struct {
-	classes []string
-	loaded  bool
+	modelPath string
+	classes   []string
+	loaded    bool
 }
 
 func NewMulticlassModel() *MulticlassModel {
-	model := &MulticlassModel{
-		classes: []string{
-			"cat", "dog", "bird", "fish", "horse",
-			"car", "truck", "airplane", "boat", "bicycle",
-		},
-		loaded: true,
+	modelPath := "./models/simple_model_multiclass/unique_model_multiclass"
+	classes := []string{
+		"dew", "fogsmog", "frost", "glaze", "hail", "lightning",
+		"rain", "rainbow", "rime", "sandstorm", "snow", "volcanos",
 	}
-	log.Println("Modelo Multiclass cargado exitosamente")
-	return model
+
+	m := &MulticlassModel{
+		modelPath: modelPath,
+		classes:   classes,
+		loaded:    false,
+	}
+
+	// Check if the model exists
+	if _, err := os.Stat(modelPath); err == nil {
+		m.loaded = true
+		log.Println("Multiclass model loaded successfully")
+		log.Printf("Model path: %s", m.modelPath)
+	} else {
+		log.Printf("ERROR: Required multiclass model not found at %s", modelPath)
+	}
+
+	log.Printf("Classes: %d", len(m.classes))
+
+	return m
 }
 
 func (m *MulticlassModel) GetClasses() []string {
@@ -30,52 +46,19 @@ func (m *MulticlassModel) GetClasses() []string {
 
 func (m *MulticlassModel) Predict(imagePath string) ([]PredictionResult, error) {
 	if !m.loaded {
-		return nil, fmt.Errorf("modelo no cargado")
+		return nil, fmt.Errorf("model not loaded: model file not found at %s", m.modelPath)
 	}
 
-	log.Printf("Clasificando con modelo Multiclass: %s", imagePath)
+	log.Printf("Classifying with Multiclass model: %s", imagePath)
 
-	// Simulación de inferencia del modelo
-	// En producción, aquí cargarías y procesarías la imagen con un modelo real
-	// como TensorFlow, PyTorch (vía ONNX), o usando un servicio externo
-
-	results := make([]PredictionResult, 0)
-	
-	// Generar probabilidades aleatorias que sumen 1.0
-	confidences := make([]float64, len(m.classes))
-	total := 0.0
-	for i := range confidences {
-		val := rand.Float64()
-		confidences[i] = val
-		total += val
-	}
-	
-	// Normalizar
-	for i := range confidences {
-		confidences[i] /= total
+	// Execute inference via Python
+	probabilities, err := RunPythonInference(m.modelPath, imagePath)
+	if err != nil {
+		return nil, fmt.Errorf("error in multiclass model inference: %v", err)
 	}
 
-	// Ordenar por confianza y retornar top 5
-	for i := 0; i < len(m.classes); i++ {
-		results = append(results, PredictionResult{
-			Class:      m.classes[i],
-			Confidence: confidences[i],
-		})
-	}
-
-	// Ordenar por confianza descendente
-	for i := 0; i < len(results)-1; i++ {
-		for j := i + 1; j < len(results); j++ {
-			if results[j].Confidence > results[i].Confidence {
-				results[i], results[j] = results[j], results[i]
-			}
-		}
-	}
-
-	// Retornar solo top 5
-	if len(results) > 5 {
-		results = results[:5]
-	}
+	// Return all class probabilities sorted by confidence
+	results := GetTopKPredictions(probabilities, m.classes, len(m.classes))
 
 	return results, nil
 }

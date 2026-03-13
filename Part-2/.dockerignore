@@ -1,4 +1,4 @@
-# Archivos y directorios de Go
+# Go files and directories
 *.exe
 *.exe~
 *.dll
@@ -8,7 +8,7 @@
 *.out
 go.work
 
-# Archivos de Node.js
+# Node.js files
 node_modules/
 dist/
 npm-debug.log*
@@ -16,12 +16,12 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# Archivos de entorno
+# Environment files
 .env.local
 .env.*.local
 .env
 
-# Archivos de sistema
+# System files
 .DS_Store
 Thumbs.db
 

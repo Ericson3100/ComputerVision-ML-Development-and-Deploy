@@ -1,47 +1,47 @@
 @echo off
-REM Script para iniciar la aplicación en modo producción (Windows)
+REM Script to start the application in production mode (Windows)
 
-echo 🚀 Iniciando Clasificador de Imágenes...
+echo Starting Image Classifier...
 echo.
 
-REM Verificar que Docker esté corriendo
+REM Verify Docker is running
 docker info >nul 2>&1
 if errorlevel 1 (
-    echo ❌ Error: Docker no está corriendo.
-    echo Por favor, inicia Docker Desktop e intenta nuevamente.
+    echo Error: Docker is not running.
+    echo Please start Docker Desktop and try again.
     pause
     exit /b 1
 )
 
-echo ✅ Docker está corriendo
+echo Docker is running
 echo.
 
-REM Parar contenedores existentes
-echo 🛑 Deteniendo contenedores existentes...
+REM Stop existing containers
+echo Stopping existing containers...
 docker-compose down
 
 echo.
-echo 🏗️  Construyendo imágenes Docker...
+echo Building Docker images...
 docker-compose build --no-cache
 
 echo.
-echo 🚀 Iniciando servicios...
+echo Starting services...
 docker-compose up -d
 
 echo.
-echo ⏳ Esperando a que los servicios estén listos...
+echo Waiting for services to be ready...
 timeout /t 5 /nobreak >nul
 
 echo.
-echo ✅ ¡Aplicación iniciada exitosamente!
+echo Application started successfully!
 echo.
-echo 📡 Servicios disponibles:
+echo Available services:
 echo    - Frontend: http://localhost:3000
 echo    - Backend:  http://localhost:8080
 echo    - Health:   http://localhost:8080/api/health
 echo.
-echo 📋 Para ver los logs: docker-compose logs -f
-echo 🛑 Para detener:     docker-compose down
+echo To view logs: docker-compose logs -f
+echo To stop:      docker-compose down
 echo.
 
 pause

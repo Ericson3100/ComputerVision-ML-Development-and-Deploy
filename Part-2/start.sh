@@ -1,51 +1,51 @@
 #!/bin/bash
 
-# Script para iniciar la aplicación en modo producción
+# Script to start the application in production mode
 
-echo "🚀 Iniciando Clasificador de Imágenes..."
+echo "Starting Image Classifier..."
 echo ""
 
-# Verificar que Docker esté corriendo
+# Verify Docker is running
 if ! docker info > /dev/null 2>&1; then
-    echo "❌ Error: Docker no está corriendo."
-    echo "Por favor, inicia Docker Desktop e intenta nuevamente."
+    echo "Error: Docker is not running."
+    echo "Please start Docker Desktop and try again."
     exit 1
 fi
 
-echo "✅ Docker está corriendo"
+echo "Docker is running"
 echo ""
 
-# Parar contenedores existentes
-echo "🛑 Deteniendo contenedores existentes..."
+# Stop existing containers
+echo "Stopping existing containers..."
 docker-compose down
 
 echo ""
-echo "🏗️  Construyendo imágenes Docker..."
+echo "Building Docker images..."
 docker-compose build --no-cache
 
 echo ""
-echo "🚀 Iniciando servicios..."
+echo "Starting services..."
 docker-compose up -d
 
 echo ""
-echo "⏳ Esperando a que los servicios estén listos..."
+echo "Waiting for services to be ready..."
 sleep 5
 
-# Verificar que los servicios estén corriendo
+# Verify services are running
 if docker-compose ps | grep -q "Up"; then
     echo ""
-    echo "✅ ¡Aplicación iniciada exitosamente!"
+    echo "Application started successfully!"
     echo ""
-    echo "📡 Servicios disponibles:"
+    echo "Available services:"
     echo "   - Frontend: http://localhost:3000"
     echo "   - Backend:  http://localhost:8080"
     echo "   - Health:   http://localhost:8080/api/health"
     echo ""
-    echo "📋 Para ver los logs: docker-compose logs -f"
-    echo "🛑 Para detener:     docker-compose down"
+    echo "To view logs: docker-compose logs -f"
+    echo "To stop:      docker-compose down"
 else
     echo ""
-    echo "❌ Error: Los servicios no se iniciaron correctamente"
-    echo "Revisa los logs con: docker-compose logs"
+    echo "Error: Services did not start correctly"
+    echo "Check logs with: docker-compose logs"
     exit 1
 fi

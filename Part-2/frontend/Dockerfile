@@ -1,32 +1,35 @@
-# Multi-stage build para frontend Vue
-FROM node:18-alpine AS builder
+# Multi-stage build for Vue frontend
+FROM node:22-alpine AS builder
 
-# Establecer directorio de trabajo
+# Set working directory
 WORKDIR /app
 
-# Copiar package files
+# Use latest npm
+RUN npm install -g npm@latest
+
+# Copy package files
 COPY package*.json ./
 
-# Instalar dependencias
-RUN npm ci
+# Install dependencies
+RUN npm install
 
-# Copiar código fuente
+# Copy source code
 COPY . .
 
-# Build de producción
+# Production build
 RUN npm run build
 
-# Etapa de producción con nginx
+# Production stage with nginx
 FROM nginx:alpine
 
-# Copiar archivos build
+# Copy build files
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Copiar configuración de nginx personalizada
+# Copy custom nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Exponer puerto
+# Expose port
 EXPOSE 80
 
-# Comando por defecto
+# Default command
 CMD ["nginx", "-g", "daemon off;"]
