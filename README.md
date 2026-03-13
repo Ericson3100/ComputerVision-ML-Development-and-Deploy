@@ -11,13 +11,21 @@ A comprehensive computer vision project for weather phenomenon classification us
   - [Installation](#installation)
   - [Usage](#usage)
   - [Project Structure](#project-structure)
+- [Part 2: Deployment](#part-2-deployment)
+  - [Architecture](#architecture)
+  - [Requirements](#requirements)
+  - [Quick Start](#quick-start)
+  - [Development Mode](#development-mode-hot-reload)
+  - [API](#api)
+  - [Screenshots](#screenshots-ui--optional-api)
+  - [Run Without Docker](#run-without-docker)
 
 ## 🎯 Overview
 
 This project explores different machine learning architectures for classifying weather phenomena in images. The repository is divided into two main parts:
 
 - **Part 1**: Model development, training, and experimentation with multiple approaches
-- **Part 2**: Production deployment with Go backend and Vue.js frontend (documentation coming soon)
+- **Part 2**: Production deployment with Go backend and Vue.js frontend — complete image classification system running 4 models in parallel with SSE streaming
 
 ## 📊 Dataset
 
@@ -267,18 +275,245 @@ Part-1/
 
 ---
 
-## 📝 License
+## � Part 2: Deployment
 
-This project is available under the MIT License.
+Complete image classification system with a Vue 3 frontend and Go backend.
+The application runs **4 models in parallel** for each uploaded image and streams progressive results via **SSE**.
 
-## 🤝 Contributing
+### What the app does
 
-Contributions are welcome! Feel free to open issues or submit pull requests.
+- Upload **one or multiple images** (drag & drop or file picker).
+- Parallel execution of 4 models:
+  - `multiclass`
+  - `multilabel`
+  - `mixture_of_experts`
+  - `binary_relevance`
+- **Confidence threshold** control (0.00 - 1.00).
+- Live results per image/model, including top class, top-5, and processing time.
+- Global stats: total images, total time, and average per image.
 
-## 📧 Contact
+### Architecture
 
-For questions or suggestions, please open an issue on GitHub.
+```
+┌───────────────────────────────────────────────────────────────┐
+│                        Docker Compose                        │
+├───────────────────────────────┬───────────────────────────────┤
+│ Frontend (Vue 3 + Nginx)      │ Backend (Go + Gorilla Mux)    │
+│ - Host port: 3000             │ - Host port: 8080             │
+│ - Upload and comparison UI     │ - REST API + SSE stream        │
+│ - Calls /api/*                 │ - 4 classification models       │
+└───────────────────────────────┴───────────────────────────────┘
+```
 
----
+### Requirements
 
-**Note**: Part 2 documentation (deployment with Go backend and Vue.js frontend) coming soon!
+- Docker Desktop running
+- Docker Compose
+- Available ports `3000` and `8080`
+- If you build locally or mount backend content manually, model files are required under `backend/models/`.
+- If you use prebuilt images, local model files are not required.
+
+### Model files (required)
+
+All TensorFlow models must be available inside `backend/models/`.
+When building with Docker, the backend image copies `backend/models/` into the container automatically.
+The backend is configured with these exact relative paths (from `backend/`):
+
+```text
+./models/simple_model_multiclass/unique_model_multiclass
+./models/simple_model_multilabel/unique_model_multilabel
+./models/MoE/moe_model
+./models/binary_relevance/dew_relevance_expert
+./models/binary_relevance/fogsmog_relevance_expert
+./models/binary_relevance/frost_relevance_expert
+./models/binary_relevance/glaze_relevance_expert
+./models/binary_relevance/hail_relevance_expert
+./models/binary_relevance/lightning_relevance_expert
+./models/binary_relevance/rain_relevance_expert
+./models/binary_relevance/rainbow_relevance_expert
+./models/binary_relevance/rime_relevance_expert
+./models/binary_relevance/sandstorm_relevance_expert
+./models/binary_relevance/snow_relevance_expert
+./models/binary_relevance/volcanos_relevance_expert
+```
+
+Expected SavedModel format for each model directory:
+
+```text
+<model_directory>/
+  saved_model.pb
+  fingerprint.pb
+  assets/
+  variables/
+    variables.data-00000-of-00001
+    variables.index
+```
+
+To export a model from Keras to this format:
+
+```python
+import keras
+
+# model = ...
+model.export("backend/models/simple_model_multiclass/unique_model_multiclass")
+```
+
+For older TensorFlow/Keras versions:
+
+```python
+model.save("backend/models/simple_model_multiclass/unique_model_multiclass", save_format="tf")
+```
+
+### Quick Start
+
+#### Option 1: Automatic script
+
+**Windows**
+```cmd
+start.bat
+```
+
+**Linux/macOS**
+```bash
+chmod +x start.sh
+./start.sh
+```
+
+#### Option 2: Docker Compose (manual)
+
+```bash
+docker-compose up --build
+```
+
+#### Option 3: Prebuilt images (no local models required)
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+#### Access URLs
+
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:8080
+- Health check: http://localhost:8080/api/health
+- Swagger UI: http://localhost:8080/swagger
+- OpenAPI spec: http://localhost:8080/swagger/doc.yaml
+
+### Development Mode (hot reload)
+
+**Windows**
+```cmd
+dev.bat
+```
+
+**Linux/macOS**
+```bash
+chmod +x dev.sh
+./dev.sh
+```
+
+Or with Docker Compose:
+
+```bash
+docker-compose -f docker-compose.dev.yml up --build
+```
+
+### Makefile commands
+
+```bash
+make help
+make up
+make dev
+make logs
+make down
+make test-backend
+make test-frontend
+```
+
+### UI workflow
+
+1. Upload one or more images (`JPG/PNG/GIF`, max 100MB per request).
+2. Adjust the confidence threshold.
+3. Click **Classify with All Models**.
+4. Review results per image across the 4 model cards.
+5. Compare predictions, confidence scores, and processing times.
+
+### API
+
+#### Swagger
+
+- Swagger UI: http://localhost:8080/swagger
+- OpenAPI YAML: http://localhost:8080/swagger/doc.yaml
+
+#### `GET /api/health`
+```bash
+curl http://localhost:8080/api/health
+```
+
+#### `GET /api/models`
+Returns metadata for available models (`multiclass`, `multilabel`, `mixture_of_experts`, `binary_relevance`).
+
+```bash
+curl http://localhost:8080/api/models
+```
+
+#### `POST /api/classify`
+Classifies one image with a selected model.
+
+```bash
+curl -X POST http://localhost:8080/api/classify \
+  -F "image=@image.jpg" \
+  -F "model=multiclass"
+```
+
+Valid values for `model`: `multiclass`, `multilabel`, `mixture_of_experts`, `binary_relevance`.
+
+#### `POST /api/classify-all`
+Classifies one or more images with all 4 models in parallel.
+
+```bash
+curl -X POST http://localhost:8080/api/classify-all \
+  -F "images=@image1.jpg" \
+  -F "images=@image2.jpg" \
+  -F "threshold=0.5"
+```
+
+#### `POST /api/classify-stream`
+Same parallel processing with progressive SSE response streaming (used by the frontend).
+
+```bash
+curl -N -X POST http://localhost:8080/api/classify-stream \
+  -F "images=@image1.jpg" \
+  -F "threshold=0.5"
+```
+
+### Screenshots (UI + optional API)
+
+#### 1) Initial UI
+![Initial UI](Part-2/screenshots/ui-initial.png)
+
+#### 2) Multiple images loaded
+![Multiple images loaded](Part-2/screenshots/ui-multiple-images.png)
+
+#### 3) Classification results with threshold behavior
+![Classification results](Part-2/screenshots/ui-results-models1.png)
+
+![Classification results 2](Part-2/screenshots/ui-results-models2.png)
+
+### Run Without Docker
+
+#### Backend
+```bash
+cd Part-2/backend
+go mod download
+go run .
+```
+
+#### Frontend
+```bash
+cd Part-2/frontend
+npm install
+npm run serve
+```
+
